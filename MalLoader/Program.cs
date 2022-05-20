@@ -24,16 +24,26 @@ namespace MalLoader
         static readonly string downloadUrl = "https://urlhaus.abuse.ch/downloads/text_recent/";
         static readonly MyWebClient web = new MyWebClient();
         static readonly MD5 md5 = MD5.Create();
+        static bool noDownload = false;
         static int malwareCount = 0;
         static int failCount = 0;
         static List<string> malwareUrls = new List<string>();
         static void Main(string[] args)
         {
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i].ToLower() == "-nodownload")
+                    noDownload = true;
+            }
+
             Console.Title = "MalLoader — www.Ill5.com (c) 2022";
             Console.WriteLine("MalLoader — www.Ill5.com (c) 2022\n");
 
-            Console.WriteLine("WARNING: This executable will download (but not execute) large amounts of malware.\nPlease press any key to continue and acknowledge the risks.\n");
-            Console.ReadKey();
+            if (!noDownload)
+            {
+                Console.WriteLine("WARNING: This executable will download (but not execute) large amounts of malware.\nPlease press any key to continue and acknowledge the risks.\n");
+                Console.ReadKey();
+            }
 
             Console.WriteLine("Downloading malware list...\n");
 
@@ -58,46 +68,60 @@ namespace MalLoader
                     malwareUrls.Add(url);
             }
 
-            Console.WriteLine($"Starting download of {malwareUrls.Count} samples...\n");
+            Console.WriteLine($"Filtered {unfilteredMalwareUrls.Count} samples to just {malwareUrls.Count} Windows executables!\n");
 
-            if (!Directory.Exists("MALWARE"))
-                Directory.CreateDirectory("MALWARE");
-
-            DateTime nextUpdate = DateTime.Now + TimeSpan.FromSeconds(5);
-
-            foreach (string url in malwareUrls)
+            if (noDownload)
             {
-                if (DateTime.Now >= nextUpdate)
+                Console.WriteLine("-nodownload specified, writing filtered list to file instead of downloading samples...");
+
+                if (File.Exists("malwareUrls.txt"))
+                    File.Delete("malwareUrls.txt");
+
+                File.WriteAllLines("malwareUrls.txt", malwareUrls.ToArray());
+            }
+            else
+            {
+                Console.WriteLine($"Starting download of {malwareUrls.Count} samples...\n");
+
+                if (!Directory.Exists("MALWARE"))
+                    Directory.CreateDirectory("MALWARE");
+
+                DateTime nextUpdate = DateTime.Now + TimeSpan.FromSeconds(5);
+
+                foreach (string url in malwareUrls)
                 {
-                    Console.WriteLine($" - {malwareCount} samples downloaded, {failCount} downloads failed");
-                    nextUpdate = DateTime.Now + TimeSpan.FromSeconds(5);
-                }
-
-                try
-                {
-                    byte[] downloadBuffer = web.DownloadData(url);
-
-                    byte[] hashBytes = md5.ComputeHash(downloadBuffer);
-
-                    StringBuilder sb = new StringBuilder();
-                    for (int i = 0; i < hashBytes.Length; i++)
+                    if (DateTime.Now >= nextUpdate)
                     {
-                        sb.Append(hashBytes[i].ToString("x2"));
+                        Console.WriteLine($" - {malwareCount} samples downloaded, {failCount} downloads failed");
+                        nextUpdate = DateTime.Now + TimeSpan.FromSeconds(5);
                     }
 
-                    string sampleName = sb.ToString();
+                    try
+                    {
+                        byte[] downloadBuffer = web.DownloadData(url);
 
-                    File.WriteAllBytes($"MALWARE\\{sampleName}.exe", downloadBuffer);
+                        byte[] hashBytes = md5.ComputeHash(downloadBuffer);
 
-                    malwareCount++;
-                }
-                catch
-                {
-                    failCount++;
+                        StringBuilder sb = new StringBuilder();
+                        for (int i = 0; i < hashBytes.Length; i++)
+                        {
+                            sb.Append(hashBytes[i].ToString("x2"));
+                        }
+
+                        string sampleName = sb.ToString();
+
+                        File.WriteAllBytes($"MALWARE\\{sampleName}.exe", downloadBuffer);
+
+                        malwareCount++;
+                    }
+                    catch
+                    {
+                        failCount++;
+                    }
                 }
             }
 
-            Console.WriteLine($"\nDownloading finished!\nFinal statistics: {malwareCount} samples downloaded, {failCount} downloads failed\n\nPress any key to exit...");
+            Console.WriteLine($"\nMalLoader finished!\nFinal statistics: {malwareCount} samples downloaded, {failCount} downloads failed\n\nPress any key to exit...");
             Console.ReadKey();
             return;
         }
