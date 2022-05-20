@@ -100,6 +100,12 @@ namespace MalLoader
                     {
                         byte[] downloadBuffer = web.DownloadData(url);
 
+                        if (downloadBuffer.Length < 2 || downloadBuffer[0] != 'M' || downloadBuffer[1] != 'Z')
+                        {
+                            failCount++;
+                            continue;
+                        }
+
                         byte[] hashBytes = md5.ComputeHash(downloadBuffer);
 
                         StringBuilder sb = new StringBuilder();
@@ -110,9 +116,12 @@ namespace MalLoader
 
                         string sampleName = sb.ToString();
 
-                        File.WriteAllBytes($"MALWARE\\{sampleName}.exe", downloadBuffer);
+                        if (!File.Exists($"MALWARE\\{sampleName}.exe"))
+                        {
+                            File.WriteAllBytes($"MALWARE\\{sampleName}.exe", downloadBuffer);
 
-                        malwareCount++;
+                            malwareCount++;
+                        }
                     }
                     catch
                     {
